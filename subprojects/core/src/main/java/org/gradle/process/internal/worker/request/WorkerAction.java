@@ -51,6 +51,12 @@ public class WorkerAction implements Action<WorkerProcessContext>, Serializable,
         ObjectConnection connection = workerProcessContext.getServerConnection();
         connection.addIncoming(RequestProtocol.class, this);
         responder = connection.addOutgoing(ResponseProtocol.class);
+        connection.setErrorHandler(new Action<Throwable>() {
+            @Override
+            public void execute(Throwable throwable) {
+                responder.failed(throwable);
+            }
+        });
         connection.connect();
 
         try {

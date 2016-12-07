@@ -53,14 +53,24 @@ public class MessageHubBackedObjectConnection implements ObjectConnection {
     //    private ClassLoader methodParamClassLoader;
     private List<SerializerRegistry> paramSerializers = new ArrayList<SerializerRegistry>();
     private Set<ClassLoader> methodParamClassLoaders = new HashSet<ClassLoader>();
+    private Action<Throwable> errorHandler;
 
     public MessageHubBackedObjectConnection(ExecutorFactory executorFactory, ConnectCompletion completion) {
-        this.hub = new MessageHub(completion.toString(), executorFactory, new Action<Throwable>() {
+        this.errorHandler = new Action<Throwable>() {
             public void execute(Throwable throwable) {
                 LOGGER.error("Unexpected exception thrown.", throwable);
             }
-        });
+        };
+        this.hub = new MessageHub(completion.toString(), executorFactory, new ErrorHandlerAction());
         this.completion = completion;
+    }
+
+    @Override
+    public void setErrorHandler(Action<Throwable> errorHandler) {
+        if (connection != null) {
+            throw new GradleException("Cannot configure error handler after connection established.");
+        }
+        this.errorHandler = errorHandler;
     }
 
     @Override
@@ -145,6 +155,13 @@ public class MessageHubBackedObjectConnection implements ObjectConnection {
         @Override
         public void dispatch(MethodInvocation message) {
             handler.dispatch(message);
+        }
+    }
+
+    private class ErrorHandlerAction implements Action<Throwable> {
+        @Override
+        public void execute(Throwable throwable) {
+            errorHandler.execute(throwable);
         }
     }
 }

@@ -15,6 +15,7 @@
  */
 package org.gradle.internal.remote;
 
+import org.gradle.api.Action;
 import org.gradle.internal.concurrent.AsyncStoppable;
 
 /**
@@ -40,4 +41,12 @@ public interface ObjectConnection extends AsyncStoppable, ObjectConnectionBuilde
      * have been handled, and all outgoing messages have been forwarded to the peer.
      */
     void stop();
+
+    /**
+     * Registers an error handler to be called whenever there is an error on this connection.
+     *
+     * @param errorHandler
+     */
+    // TODO: it may make sense at some point to have a separate error handler for recoverable vs unrecoverable errors
+    void setErrorHandler(Action<Throwable> errorHandler);
 }

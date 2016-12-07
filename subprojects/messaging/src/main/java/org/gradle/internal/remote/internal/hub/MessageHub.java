@@ -23,6 +23,7 @@ import org.gradle.internal.concurrent.StoppableExecutor;
 import org.gradle.internal.dispatch.BoundedDispatch;
 import org.gradle.internal.dispatch.Dispatch;
 import org.gradle.internal.remote.internal.Connection;
+import org.gradle.internal.remote.internal.MessageStreamException;
 import org.gradle.internal.remote.internal.RemoteConnection;
 import org.gradle.internal.remote.internal.hub.protocol.*;
 import org.gradle.internal.remote.internal.hub.queue.EndPointQueue;
@@ -247,7 +248,15 @@ public class MessageHub implements AsyncStoppable {
             try {
                 try {
                     while (true) {
-                        InterHubMessage message = connection.receive();
+                        InterHubMessage message;
+                        try {
+                            message = connection.receive();
+                        } catch (MessageStreamException e) {
+                            // These are problems with streaming the message - it is likely that another message
+                            // might succeed, so we handle the error and continue instead of stopping
+                            errorHandler.execute(e);
+                            continue;
+                        }
                         if (message == null || message instanceof EndOfStream) {
                             return;
                         }
@@ -295,7 +304,13 @@ public class MessageHub implements AsyncStoppable {
                             lock.unlock();
                         }
                         for (InterHubMessage message : messages) {
-                            connection.dispatch(message);
+                            try {
+                                connection.dispatch(message);
+                            } catch (MessageStreamException e) {
+                                // These are problems with streaming the message - it is likely that another message
+                                // might succeed, so we handle the error and continue instead of stopping
+                                errorHandler.execute(e);
+                            }
                             if (message instanceof EndOfStream) {
                                 connection.flush();
                                 return;
